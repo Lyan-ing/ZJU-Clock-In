@@ -21,17 +21,14 @@ class ClockIn(object):
         HEADERS: (dir) 请求头
         sess: (requests.Session) 统一的session
     """
-    # LOGIN_URL = "https://zjuam.zju.edu.cn/cas/login?service=https%3A%2F%2Fhealthreport.zju.edu.cn%2Fa_zju%2Fapi%2Fsso%2Findex%3Fredirect%3Dhttps%253A%252F%252Fhealthreport.zju.edu.cn%252Fncov%252Fwap%252Fdefault%252Findex"
-    LOGIN_URL = "https://jkdk.zju.edu.cn/uc/wap/login/check"
-    # BASE_URL = "https://healthreport.zju.edu.cn/ncov/wap/default/index"
-    BASE_URL = "https://jkdk.zju.edu.cn/ncov/wap/default/index"
-    SAVE_URL = "https://jkdk.zju.edu.cn/ncov/wap/default/save"
-    CAPTCHA_URL = 'https://healthreport.zju.edu.cn/ncov//ncov/wap/default/save'
+    LOGIN_URL = "https://zjuam.zju.edu.cn/cas/login?service=https%3A%2F%2Fhealthreport.zju.edu.cn%2Fa_zju%2Fapi%2Fsso%2Findex%3Fredirect%3Dhttps%253A%252F%252Fhealthreport.zju.edu.cn%252Fncov%252Fwap%252Fdefault%252Findex"
+    BASE_URL = "https://healthreport.zju.edu.cn/ncov/wap/default/index"
+    SAVE_URL = "https://healthreport.zju.edu.cn/ncov/wap/default/save"
+    CAPTCHA_URL = 'https://healthreport.zju.edu.cn/ncov/wap/default/code'
     HEADERS = {
-            # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36"
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36"
     }
-    
+
     def __init__(self, username, password):
         self.username = username
         self.password = password
@@ -39,20 +36,19 @@ class ClockIn(object):
 
     def login(self):
         """Login to ZJU platform"""
-        # res = self.sess.get(self.LOGIN_URL, headers=self.HEADERS)
-        # execution = re.search(
-        #     'name="execution" value="(.*?)"', res.text).group(1)
-        # res = self.sess.get(
-        #     url='https://zjuam.zju.edu.cn/cas/v2/getPubKey', headers=self.HEADERS).json()
-        # n, e = res['modulus'], res['exponent']
-        # encrypt_password = self._rsa_encrypt(self.password, e, n)
+        res = self.sess.get(self.LOGIN_URL, headers=self.HEADERS)
+        execution = re.search(
+            'name="execution" value="(.*?)"', res.text).group(1)
+        res = self.sess.get(
+            url='https://zjuam.zju.edu.cn/cas/v2/getPubKey', headers=self.HEADERS).json()
+        n, e = res['modulus'], res['exponent']
+        encrypt_password = self._rsa_encrypt(self.password, e, n)
 
         data = {
             'username': self.username,
-            # 'password': encrypt_password,
-            'password': self.password,
-            # 'execution': execution,
-            # '_eventId': 'submit'
+            'password': encrypt_password,
+            'execution': execution,
+            '_eventId': 'submit'
         }
         res = self.sess.post(url=self.LOGIN_URL, data=data, headers=self.HEADERS)
 
@@ -71,12 +67,7 @@ class ClockIn(object):
         today = datetime.date.today()
         return "%4d%02d%02d" % (today.year, today.month, today.day)
 
-    # def get_captcha(self):
-    #     """Get CAPTCHA code"""
-    #     resp = self.sess.get(self.CAPTCHA_URL)
-    #     # captcha = self.ocr.classification(resp.content)
-    #     print("验证码：", captcha)
-    #     return captcha
+
 
     def get_info(self, html=None):
         """Get hitcard info, which is the old info with updated new time."""
@@ -85,7 +76,7 @@ class ClockIn(object):
             html = res.content.decode()
 
         try:
-            old_infos = re.findall(r'def = ({[^\n]+})', html)
+            old_infos = re.findall(r'oldInfo: ({[^\n]+})', html)
             if len(old_infos) != 0:
                 old_info = json.loads(old_infos[0])
             else:
@@ -113,9 +104,9 @@ class ClockIn(object):
         # form change
         new_info['jrdqtlqk[]'] = 0
         new_info['jrdqjcqk[]'] = 0
-        new_info['sfsqhzjkk'] = 1   # 是否申领杭州健康码
-        new_info['sqhzjkkys'] = 1   # 杭州健康吗颜色，1:绿色 2:红色 3:黄色
-        new_info['sfqrxxss'] = 1    # 是否确认信息属实
+        new_info['sfsqhzjkk'] = 1  # 是否申领杭州健康码
+        new_info['sqhzjkkys'] = 1  # 杭州健康吗颜色，1:绿色 2:红色 3:黄色
+        new_info['sfqrxxss'] = 1  # 是否确认信息属实
         new_info['jcqzrq'] = ""
         new_info['gwszdd'] = ""
         new_info['szgjcs'] = ""
@@ -189,9 +180,9 @@ def main(username, password):
             print('已为您打卡成功！')
         else:
             print(res['m'])
-            if res['m'].find("已经") != -1: # 已经填报过了 不报错
+            if res['m'].find("已经") != -1:  # 已经填报过了 不报错
                 pass
-            elif res['m'].find("验证码错误") != -1: # 验证码错误
+            elif res['m'].find("验证码错误") != -1:  # 验证码错误
                 print('再次尝试')
                 time.sleep(5)
                 main(username, password)
@@ -204,8 +195,8 @@ def main(username, password):
 
 
 if __name__ == "__main__":
-    username = sys.argv[1]
-    password = sys.argv[2]
+    username = "12021094"
+    password = "zju04026"
     try:
         main(username, password)
     except Exception:
